@@ -1,4 +1,4 @@
 name = "TeleMo"
-description = "Enables other connectivity modules that use one or more telephony APIs."
+description = "Enables other modules to access telephony services through different APIs, such as CallFire or Twilio."
 package = TeleMo
 core = 6.x

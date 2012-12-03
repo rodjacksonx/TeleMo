@@ -1,0 +1,23 @@
+HOW-TO: INSTRUCTIONS FOR USING TELEMO
+
+This module is designed for use with version 6.x of Drupal, and (optionally) version 2.x of Ubercart. It will allow your website to use other service-specific modules to interact with various telephony APIs, adding connectivity features such as automated text messages and more.
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+To use this module:
+
+(1) Ensure you have the proper versions of Drupal (6.x) and, if using Ubercart, the proper version of it (2.x).
+
+(2) If you have any intention to receive notifications (such as when an SMS is sent to you,) ensure that your website is using SSL, and that a valid certificate is present so that other servers can access "https" URLs of the website.
+
+(2) Sign up for an account with at least one telephony service company compatible with this module. Currently, CallFire (https://callfire.com) and Twilio (https://twilio.com) are the available options. Be sure to read all provided information thoroughly, and to understand any fees that will be charged.
+
+(3) Secure a login, password, and/or API key from the company, as needed to access their API. CallFire provides a login and password; Twilio provides an API key.
+
+(4) Install the module. Place the folder 'telemo' into the proper location on your server; it should be placed alongside the other third-party Drupal modules.
+
+(5) Enable the module. As an administrator on your website, view the 'Modules' section of 'Site Building'. The module will be found under 'TeleMo'. Save the configuration once the module is enabled.
+
+(6) Configure the module settings. To do so, in the admin navigation, go to Site configuration -> TeleMo. Enable connectivity for each service company you will be using, and enter your access information for each. Be sure to also include any other information to use their services (such as any purchased phone numbers, etc.) Save the configuration when done.
+
+(7) You're finished! The TeleMo module is ready for use; other extending modules (such as TeleMo SMS) can be installed and enabled, and their settings can be configured under the TeleMo module's settings.

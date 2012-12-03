@@ -1,0 +1,19 @@
+©2012 Warehouse Guitar Speakers.
+
+   ----------
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+   ----------
+
+WARNING: This code is currently ALPHA. It has not yet been tested, and will have bugs, errors, and other issues. Use at this point is not recommended!
+
+   ----------
+
+TeleMo is a communication module intended for use with version 6.x of Drupal, and (optionally) version 2.x of Ubercart.
+
+This module simplifies access to various APIs from different companies offering telephony services; currently it handles the APIs from CallFire.com and Twilio.com. The intention is to allow the website developer to sign up with one (or more) telephony services, and to change between them as needed, without requiring any changes to code. And as implied, this design should also allow developers of service-specific modules, such as TeleMo SMS, to maintain such modules (or develop new ones) without concern for the specific API on the backend. Of course, all this means the access to specific service will come from extending modules; TeleMo has very little immediate usage on its own.
+
+Documentation of an "internal API" for the development of extending modules accessing specific services is also included with this module.
