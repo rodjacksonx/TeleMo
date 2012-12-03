@@ -10,10 +10,10 @@ define('CALLFIRE_GET_STATS_URL', "https://www.callfire.com/api/rest/broadcast/")
 
 
 /**
- * cfPost - this function is a generic accessor for CallFire's API; it
- *   gives their system data we want it to have, returning a result
+ * telemo_cfPost - this function is a generic accessor for CallFire's API;
+ *   it gives their system data we want it to have, returning a result
  */
-function cfPost($url, $user, $password, $params = array(),
+function telemo_cfPost($url, $user, $password, $params = array(),
                 $contentType = 'application/x-www-form-urlencoded') {
 
 	$query = http_build_query($params, '', '&');
@@ -33,10 +33,10 @@ function cfPost($url, $user, $password, $params = array(),
 
 
 /**
- * cfGet - this function is a generic accessor for CallFire's API; it
- *   allows the retrieval of user-specific data from their system
+ * telemo_cfGet - this function is a generic accessor for CallFire's API;
+ *   it allows the retrieval of user-specific data from their system
  */
-function cfGet($url, $user, $password, $params = array(), $contentType = 'plain/text') {
+function telemo_cfGet($url, $user, $password, $params = array(), $contentType = 'plain/text') {
 	$query = http_build_query($params, '', '&');
 	$authentication = 'Authorization: Basic '.base64_encode("$user:$password");
 	$http = curl_init($url);
@@ -68,7 +68,7 @@ function cfGet($url, $user, $password, $params = array(), $contentType = 'plain/
  *   short code, you can provide it optionally
  *
  */
-function cfSendSMS($phone_nums, $message, $from = false) {
+function telemo_cfSendSMS($phone_nums, $message, $from = false) {
 
   // if given as an array, concat the numbers into a single string
   if (is_array($phone_nums)) {
@@ -76,7 +76,7 @@ function cfSendSMS($phone_nums, $message, $from = false) {
     foreach ($phone_nums as $phone_num) {
       $phone_num_str .= $phone_num . ',';
     }
-    $phone_num_str = substr($phone_num_str, 0, strlen($phone_num_str) - 1);
+    $phone_num_str = substr($phone_num_str, 1);
   }
   else {
     $phone_num_str = $phone_nums;
@@ -93,14 +93,24 @@ function cfSendSMS($phone_nums, $message, $from = false) {
   }
   
   // use cfPost to do the actual send, getting a response
-  $resp = cfPost(CALLFIRE_SMS_SEND_URL, _get_cf_login(), _get_cf_password(), $details);
+  $resp = telemo_cfPost(CALLFIRE_SMS_SEND_URL, _get_telemo_callfire_login(), _get_telemo_callfire_password(), $details);
 
   // convert the response into an xml object
   $xml = simplexml_load_string($resp);
-  //$id = (string)$xml->children(CALLFIRE_RESOURCE_NAMESPACE)->Id;
+  
+  if ($xml == FALSE) {
+  	$error = TRUE;
+	  $id = FALSE;
+  }
+  else {
+  	$error = FALSE;
+  	$id = (string)$xml->children(CALLFIRE_RESOURCE_NAMESPACE)->Id;
+  }
+  
+  $ret_array = array('ids' => $id, 'error' => $error);  
   
   // return the results
-  return $xml;
+  return $ret_array;
   
 } // end function - cfSendSMS
 
@@ -113,7 +123,7 @@ function cfSendSMS($phone_nums, $message, $from = false) {
  * @param - $id: the broadcast ID of the previous send
  *
  */
-function cfGetSendStats($id) {
+/*function cfGetSendStats($id) {
 
   $get_url = CALLFIRE_GET_STATS_URL . $id . '/stats';
    
@@ -122,7 +132,7 @@ function cfGetSendStats($id) {
   $xml = simplexml_load_string($resp);
   
   return $xml;
-}
+}*/
 
 /*
 string(735) '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -161,7 +171,7 @@ string(735) '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
  */
 function cfAddVoiceFile($filename, $title = '') {
 
-  $client = _new_cf_soap_client;
+  $client = _new_telemo_callfire_soap_client;
     
   // read the file into $voice_data as a string
   // UNFINISHED: this portion is probably handled
@@ -224,7 +234,7 @@ function cfVoiceBroadcast($phone_nums, $caller_id_num, $title, $config, $voice_i
   // UNFINISHED: this may be required to be the same
   // actual client object that was previously created
   // with cfAddVoiceFile. If so, recode accordingly
-  $client = _new_cf_soap_client();
+  $client = _new_telemo_callfire_soap_client();
 
   // define the request we'll need for the client
   $send_call_request = array(
@@ -256,7 +266,7 @@ function cfVoiceBroadcast($phone_nums, $caller_id_num, $title, $config, $voice_i
  */
 function cfGetBroadcastInfo($id, $call_info = false) {
 
-  $client = _new_cf_soap_client();
+  $client = _new_telemo_callfire_soap_client();
 
   // if the call info flag is set, get the info on the individual
   // phone calls rather than the info about the general broadcast
@@ -282,7 +292,7 @@ function cfGetBroadcastInfo($id, $call_info = false) {
  */
 function cfPostbackSubscribe($url) {
 
-  $client = _new_cf_soap_client('SOAP_1_2');
+  $client = _new_telemo_callfire_soap_client('SOAP_1_2');
 
   $subscription_request = array('Subscription' => array(
     'Endpoint' => $url,
@@ -355,7 +365,7 @@ mail('whatsyourname@yourwebsite.com', $emailSubject, $emailMessage);
  */
 function cfPostbackUnsubscribe($id) {
 
-  $client = _new_cf_soap_client('SOAP_1_2');
+  $client = _new_telemo_callfire_soap_client('SOAP_1_2');
   
   $response = $client->querySubscriptions();
 
@@ -398,7 +408,7 @@ foreach($subscriptions as $sub) {
  */
 function cfGetSubscriptions() {
 
-  $client = _new_cf_soap_client('SOAP_1_2');
+  $client = _new_telemo_callfire_soap_client('SOAP_1_2');
 
   $response = $client->querySubscriptions();
 
@@ -420,11 +430,11 @@ function cfGetSubscriptions() {
  * Creates an new instance of a CallFire SOAP client
  * for interacting with their system and handling requests
  */
-function _new_cf_soap_client($version = '') {
+function _new_telemo_callfire_soap_client($version = '') {
 
   $client_params = array(
-    'login'        => _get_cf_login(),    
-    'password'     => _get_cf_password());
+    'login'        => _get_telemo_callfire_login(),    
+    'password'     => _get_telemo_callfire_password());
 
   if ($version !== '') {
     $client_params['soap_version'] = $version;
@@ -439,13 +449,13 @@ function _new_cf_soap_client($version = '') {
 /**
  * Returns the app login to access CallFire's API
  */
-function _get_cf_login() {
-  return variable_get('callfire_login', '');
+function _get_telemo_callfire_login() {
+  return variable_get('telemo_callfire_login', '');
 }
 
 /**
  * Returns the app password to access CallFire's API
  */
-function _get_cf_password() {
-  return variable_get('callfire_password', '');
+function _get_telemo_callfire_password() {
+  return variable_get('telemo_callfire_password', '');
 }
