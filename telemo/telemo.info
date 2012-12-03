@@ -1,0 +1,4 @@
+name = "TeleMo"
+description = "Enables other connectivity modules that use one or more telephony APIs."
+package = TeleMo
+core = 6.x

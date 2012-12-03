@@ -1,0 +1,296 @@
+<?php
+
+/**
+ * @file
+ *   telemo.install
+ *
+ * Installation file for the TeleMo module
+ */
+
+
+/**
+ * Implementation of hook_requirements().
+ *
+ * Checks to ensure any required library is installed/enabled. 
+ */
+function telemo_requirements($phase) {
+  $t = get_t();
+
+  // CallFire's provided API code requires cURL.
+  $has_curl = function_exists('curl_init');
+  if (variable_get('telemo_enabled', FALSE)) {
+    $requirements['telemo_curl'] = array(
+      'title' => $t('cURL'),
+      'value' => $has_curl ? $t('Enabled') : $t('Not found'),
+    );
+    if (!$has_curl) {
+      $requirements['telemo_curl']['severity'] = REQUIREMENT_ERROR;
+      $requirements['telemo_curl']['description'] = $t("TeleMo requires the PHP <a href='!curl_url'>cURL</a> library.", array('!curl_url' => 'http://php.net/manual/en/curl.setup.php'));
+    }
+  }
+
+  return $requirements;
+}
+
+
+/**
+ * Implementation of hook_schema().
+ */
+function telemo_schema() {
+
+  $schema = array();
+
+  $schema['telemo_account_numbers'] = array(
+    'description' => 'Stores your account-specific phone numbers (CallFire, Twilio, etc.) for use with TeleMo.',
+    'fields' => array(
+      'number' => array(
+        'description' => "Primary key: the phone number.",
+        'type' => 'varchar',
+        'length' => 31,
+        'not null' => TRUE,
+      ),
+      'label' => array(
+        'description' => 'Internal label describing this number.',
+        'type' => 'varchar',
+        'length' => 255,
+        'default' => '',
+      ),
+			'account' => array(
+			  'description' => 'The account (CallFire, Twilio, etc.) this number is associated with.',
+				'type' => 'varchar',
+				'length' => 31,
+				'default' => '',
+			),
+    ),
+    'primary key' => array('number')
+  );
+
+  $schema['telemo_users'] = array(
+    'description' => 'Stores users and their mobile numbers for use with the various TeleMo services.',
+    'fields' => array(
+      'id' => array(
+        'description' => "Primary key: the user's ID.",
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+      'mobile_num' => array(
+        'description' => "The user's mobile phone number.",
+        'type' => 'varchar',
+        'length' => 31,
+        'default' => '',
+      ),
+      'last_action_time' => array(
+        'description' => "Timestamp of the last action involving this user's phone number.",
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'default' => 0,
+      ),
+      'last_action_event' => array(
+        'description' => "The feature associated with the last action involving this user's phone number.",
+        'type' => 'varchar',
+        'length' => 31,
+        'default' => '',
+      ),
+			'groupings' => array(
+			  'description' => 'Future use: what groups the user is categorized into (or has joined, etc.)',
+				'type' => 'varchar',
+				'length' => 255,
+				'default' => '',
+			),
+			'signups' => array(
+			  'description' => "The SMS features the user is signed up for.",
+				'type' => 'varchar',
+				'length' => 255, // enough for roughly 20 features
+				'default' => '',
+			),
+      'creation' => array(
+        'description' => 'Timestamp of the last SMS sent to this user.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+    'indexes' => array(
+      'last_action_time' => array('last_action_time'),
+      'creation' => array('creation'),
+    ),
+    'primary key' => array('id')
+  );
+
+  $schema['telemo_actions'] = array(
+    'description' => 'Records reference info for each TeleMo telephony action.',
+    'fields' => array(
+      'id' => array(
+        'description' => "Primary key: the action ID (for example, the CallFire broadcast ID.)",
+        'type' => 'int',
+      ),
+      'message' => array(
+        'description' => "The message, if any, associated with this action.",
+        'type' => 'varchar',
+        'length' => 255,
+      ),
+      'timestamp' => array(
+        'description' => 'Our timestamp of this action.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+			'service_id' => array(
+			  'description' => 'The ID of the service this action was for.',
+				'type' => 'varchar',
+				'length' => 15,
+			),
+			'feature_id' => array(
+			  'description' => 'The ID of the feature this action was for.',
+				'type' => 'varchar',
+				'length' => 15,
+			),
+			'minor_data' => array(
+			  'description' => 'Extra less-significant data used for some actions.',
+				'type' => 'varchar',
+				'length' => 255,
+			),
+			'major_data' => array(
+			  'description' => 'Extra more-significant data used for some actions.',
+				'type' => 'varchar',
+				'length' => 255,
+			),
+			'from_num' => array(
+			  'description' => 'The number the activity was shown from, if one was specified.',
+				'type' => 'varchar',
+				'length' => 31,
+				'default' => '', // empty indicates none was specified
+			),
+    ),
+    'indexes' => array(
+      'timestamp' => array('timestamp'),
+    ),
+    'primary key' => array('id')
+  );
+
+  $schema['telemo_action_numbers'] = array(
+    'description' => 'Records all numbers of all sends we made.',
+    'fields' => array(
+      'action_id' => array(
+        'description' => "The action ID (broadcast ID)",
+        'type' => 'int',
+      ),
+      'user_id' => array(
+        'description' => "The user ID the send was for.",
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'number' => array(
+        'description' => "The user's mobile phone number.",
+        'type' => 'varchar',
+        'length' => 31,
+        'not null' => TRUE,
+      ),
+    ),
+    'indexes' => array(
+      'send_id' => array('send_id'),
+      'user_id' => array('user_id'),
+    ),
+  );
+
+  $schema['telemo_future_actions'] = array(
+    'description' => 'Stores actions (specific feature events) scheduled to be broadcast in the future.',
+    'fields' => array(
+      'id' => array(
+        'description' => "Primary key: a unique ID per future action, for easier reference.",
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'message' => array(
+        'description' => "The message actually broadcast out.",
+        'type' => 'varchar',
+        'length' => 255,
+      ),
+      'action_time' => array(
+        'description' => 'The (next) intended time to perform the action.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+			'service_id' => array(
+			  'description' => 'The ID of the service this action was for.',
+				'type' => 'varchar',
+				'length' => 15,
+			),
+			'feature_id' => array(
+			  'description' => 'The ID of the feature this action was for.',
+				'type' => 'varchar',
+				'length' => 15,
+			),
+			'minor_data' => array(
+			  'description' => 'Extra less-significant data used for some actions.',
+				'type' => 'varchar',
+				'length' => 255,
+			),
+			'major_data' => array(
+			  'description' => 'Extra more-significant data used for some actions.',
+				'type' => 'varchar',
+				'length' => 255,
+			),
+			'from_num' => array(
+			  'description' => 'The number the activity was shown from, if one was specified.',
+				'type' => 'varchar',
+				'length' => 31,
+				'default' => '', // empty indicates none was specified
+			),
+      'recurrence' => array(
+      	'description' => 'A code indicating when to resend a regularly occurring action.',
+      	'type' => 'varchar',
+      	'length' => 15,
+      	'default' => 'none',
+      	/* codes include:
+      		'none' - to explicitly indicate no recurrence, only send once
+      		'hourly' - same time every hour
+      		'daily' - same time every day
+      		'weekdays' - same time every weekday
+      		'weekly' - same day, same time every week
+      		'biweekly' - same day, same time every other week
+      		'monthly' - same day (1st, 25th, etc.), same time each month
+      		'weekday-month' - same day of week (1st Wed., 3rd Fri., etc.) in each month
+      		'annually' - same day (June 3, May 28, etc.), same time each year
+      	*/
+      ),
+    ),
+    'indexes' => array(
+      'action_time' => array('action_time'),
+      'service_id' => array('service_id'),
+      'feature_id' => array('feature_id'),
+    ),
+    'primary key' => array('id')
+  );
+
+  return $schema;
+}
+
+
+/**
+ * Implementation of hook_install().
+ *
+ * Installs the TeleMo module.
+ */
+function telemo_install() {
+  // Set the module weight so it can override other modules.
+  db_query("UPDATE {system} SET weight = 99 WHERE name = 'telemo'");
+  // install the schema for the database
+  drupal_install_schema('telemo');
+}
+
+
+/**
+ * Implementation of hook_uninstall()
+ *
+ * Uninstalls the TeleMo module.
+ */
+function telemo_uninstall() {
+  // Remove the schema
+  drupal_uninstall_schema('telemo');
+	// Remove relevant data from the DB
+  db_query("DELETE FROM {variable} WHERE name LIKE 'telemo_%%'");
+}

@@ -1,0 +1,365 @@
+<?php
+
+/**
+ * @file - telemo.module
+ *
+ * Enabling other telephony modules using any of a number of companies' API services.
+ * Currently works with CallFire.com and Twilio.com
+ *
+ * @creation November 2012
+ * @author Rod Jackson (RDJ)
+ */
+ 
+require_once("telemo.callfire_lib.php");
+require_once("telemo.twilio_lib.php");
+require_once("telemo.routines.inc");
+require_once("telemo.notify.inc");
+
+define('CALLFIRE_WEBSITE', "https://callfire.com");
+define('TWILIO_WEBSITE', "https://twilio.com");
+
+define('CALLFIRE_NOTIFY_URL', "telemo/callfire/notify");
+define('TWILIO_NOTIFY_URL', "telemo/twilio/notify");
+
+
+/**
+ * Settings form for the TeleMo module.
+ */
+function telemo_settings_form() {
+
+	//global $base_url;
+
+	$form = array();
+
+	/*$form['telemo_base_url'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Store website base URL'),
+		'#default_value' => variable_get('telemo_base_url', $base_url),
+    '#summary' => t('Store website base URL is currently set as: <br /> %url', array('%url' => variable_get('telemo_base_url', $base_url))),
+		'#description' =>
+			t("Base URL of the website. It is presented here primarily to allow admins to force the use of the 'https' version of their website if it doesn't automatically use it. TeleMo requires that the website use SSL to receive notifications from telephony service provider(s), so please add the 's' to 'http' if needed. For reference, the website's internal base URL is normally: ") . '<b>' . $base_url . '</b>',
+	);*/
+  $form['telemo_callfire_settings'] = array(
+		'#type' => 'fieldset',
+    '#title' => t('CallFire settings'),
+		'#collapsible' => FALSE,
+		'#collapsed' => FALSE,
+  );
+	$form['telemo_callfire_settings']['telemo_callfire_enabled'] = array(
+    '#type' => 'checkbox',
+		'#title' => 'Enable CallFire access',
+    '#summary callback' => 'summarize_checkbox',
+    '#summary arguments' => array(t('CallFire access is enabled.'), t('CallFire access is disabled.')),
+    '#default_value' => variable_get('telemo_callfire_enabled', FALSE),
+	);
+	$form['telemo_callfire_settings']['telemo_callfire_login'] = array(
+		'#type' => 'textfield',
+		'#title' => t('CallFire login'),
+		'#default_value' => variable_get('telemo_callfire_login', ''),
+    '#summary' => t('CallFire login is currently set as: <br /> %login', array('%login' => variable_get('telemo_callfire_login', ''))),
+		'#description' => t('The app login provided by CallFire. This is required to use any CallFire services.'),
+	);
+	$form['telemo_callfire_settings']['telemo_callfire_password'] = array(
+		'#type' => 'textfield',
+		'#title' => t('CallFire password'),
+		'#default_value' => variable_get('telemo_callfire_password', ''),
+    '#summary' => t('CallFire password is currently set as: <br /> %password', array('%password' => variable_get('telemo_callfire_password', ''))),
+		'#description' => t('The app password provided by CallFire. This is required to use any CallFire services.'),
+	);
+	$form['telemo_callfire_settings']['telemo_callfire_default_from_num'] = array(
+		'#type' => 'textfield',
+		'#title' => t('"From" phone number'),
+		'#default_value' => variable_get('telemo_callfire_default_from_num', ''),
+    '#summary' => t('Default CallFire "from" phone number is currently set as: <br /> %from', array('%from' => variable_get('telemo_callfire_default_from_num', ''))),
+		'#description' =>
+			t("The default phone number to use as the 'sent from' number on CallFire telephony communications. This should be a phone number you have on record with CallFire. Feel free to add dashes or whatever formatting you like; non-digits will be stripped before the number is used."),
+	);
+  $form['telemo_twilio_settings'] = array(
+		'#type' => 'fieldset',
+    '#title' => t('Twilio settings'),
+		'#collapsible' => FALSE,
+		'#collapsed' => FALSE,
+  );
+	$form['telemo_twilio_settings']['telemo_twilio_enabled'] = array(
+    '#type' => 'checkbox',
+		'#title' => 'Enable Twilio access',
+    '#summary callback' => 'summarize_checkbox',
+    '#summary arguments' => array(t('Twilio access is enabled.'), t('Twilio access is disabled.')),
+    '#default_value' => variable_get('telemo_twilio_enabled', FALSE),
+	);
+	$form['telemo_twilio_settings']['telemo_twilio_api_key'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Twilio API key'),
+		'#default_value' => variable_get('telemo_twilio_api_key', ''),
+    '#summary' => t('Twilio API key is currently set as: <br /> %login', array('%login' => variable_get('telemo_twilio_api_key', ''))),
+		'#description' => t('The API key provided by Twilio. This is required to use any Twilio services.'),
+	);
+	$form['telemo_twilio_settings']['telemo_twilio_default_from_num'] = array(
+		'#type' => 'textfield',
+		'#title' => t('"From" phone number'),
+		'#default_value' => variable_get('telemo_twilio_default_from_num', ''),
+    '#summary' => t('Default Twilio "from" phone number is currently set as: <br /> %from', array('%from' => variable_get('telemo_twilio_default_from_num', ''))),
+		'#description' =>
+			t("The default phone number to use as the 'sent from' number on Twilio telephony communications. This should be a phone number you have on record with Twilio. Feel free to add dashes or whatever formatting you like; non-digits will be stripped before the number is used."),
+	);
+
+	return system_settings_form($form);
+}
+
+
+/**
+ * Validate TeleMo settings.
+ */
+function telemo_settings_form_validate($form, &$form_state) {
+
+	global $base_url;
+
+	// check that https is used, not just http
+	$url = $base_url;
+	$https_pos = strpos($url, 'https://');
+	if ($https_pos === FALSE) {
+		$http_pos = strpos($url, 'http://');
+		if ($http_pos === FALSE) {
+			$url = 'https://' . $url;
+		}
+		else {
+			$url = substr_replace($url, 'https:', $http_pos, 5); // replace 'http:' with 'https:'
+		}
+	}
+	
+	// for CallFire, if used, setup for postbacks
+	$callfire_login = $form_state['values']['telemo_callfire_login'];
+	$callfire_password = $form_state['values']['telemo_callfire_password'];
+	$callfire_is_enabled = $form_state['values']['telemo_callfire_enabled'];
+	if ($callfire_is_enabled && ($callfire_login != '') && ($callfire_password != '')) {
+		
+		variable_set('telemo_callfire_login', $callfire_login);
+		variable_set('telemo_callfire_password', $callfire_password);
+		
+		$subscriptions = cfGetSubscriptions();
+	
+		// remove previous subscriptions, in case any no-longer-accessed ones are present
+		if ($subscriptions) {
+			foreach ($subscriptions as $subscription) {
+				$id = $subscription->id;
+				if ($id) {
+					$response = cfPostbackUnsubscribe($id); //$client->deleteSubscription($delete_request);
+				}
+			}
+		}
+		
+		$notify_url = $url . '/' . CALLFIRE_NOTIFY_URL;
+		
+		// create a new subscription
+		$response = cfPostbackSubscribe($notify_url);
+	}
+
+} // end function - telemo_settings_form_validate
+
+
+/**
+ * Display help and module information
+ * @param path which path of the site we're displaying help
+ * @param arg array that holds the current path as would be returned from arg() function
+ * @return help text for the path
+ */
+function telemo_help($path, $arg) {
+	$o = '';  // declare your output variable
+	switch ($path) {
+		case "admin/help#telemo":
+			$o .= '<p>'. 
+				t('Enables the use of other service-specific TeleMo modules.') .'</p>';
+			break;
+	}
+	return $o;
+}
+
+
+/**
+ * Implements hook_menu().
+ */
+function telemo_menu() {
+
+	$items = array();
+	
+	// Always accessible, accepts POST data from CallFire's
+	// servers when being sent a postback.
+	$items[CALLFIRE_NOTIFY_URL] = array(
+		'title' => 'CallFire Notifications',
+		'access callback' => TRUE,
+		'page callback' => 'callfire_notification',
+		'type' => MENU_CALLBACK,
+		'file' => 'telemo.notify.inc',
+	);
+
+	// Always accessible, accepts POST data from Twilio's
+	// servers when being sent a notification.
+	$items[TWILIO_NOTIFY_URL] = array(
+		'title' => 'Twilio Notifications',
+		'access callback' => TRUE,
+		'page callback' => 'twilio_notification',
+		'type' => MENU_CALLBACK,
+		'file' => 'telemo.notify.inc',
+	);
+
+	// parent settings menu
+	$items['admin/settings/telemo'] = array(
+		'title' => t('TeleMo'),
+		'description' => t('Basic settings of the TeleMo module, and individual enabling of services.'),
+		'page callback' => 'telemo_settings_overview',
+		'access arguments' => array('access administration pages'),
+		'type' => MENU_NORMAL_ITEM,
+	);
+
+	// overview page for the settings (the default)
+  $items['admin/settings/telemo/overview'] = array(
+    'title' => 'Overview',
+    'description' => 'View the general TeleMo settings.',
+		'page callback' => 'telemo_settings_overview',
+    'access arguments' => array('access administration pages'),
+    'weight' => -10,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  
+  // page to edit the settings
+  $items['admin/settings/telemo/edit'] = array(
+    'title' => 'Edit',
+    'description' => 'Edit the general TeleMo settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('telemo_settings_form'),
+    'access arguments' => array('access administration pages'),
+    'weight' => -5,
+    'type' => MENU_LOCAL_TASK,
+  );
+  
+  // page to display and adjust the settings for the services & their features
+  $items['admin/settings/telemo/services'] = array(
+    'title' => 'Services',
+    'description' => 'Enable and disable TeleMo services and their features.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array ('telemo_services_form'),
+    'access arguments' => array('access administration pages'),
+    'weight' => 0,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+	return $items;
+}
+
+
+/**
+ * Displays an overview of the TeleMo settings.
+ */
+function telemo_settings_overview() {
+  // Theme all the pages beneath this path into summary overviews.
+  return theme('summary_overview', summarize_child_form_pages('admin/settings/telemo'));
+}
+
+
+/**
+ * Displays the TeleMo service modules, both to allow
+ * enabling and to allow modifying their settings.
+ */
+function telemo_services_form() {
+
+  $services = _telemo_all_services();
+
+  $form['services_info'] = array(
+    '#value' => '<div><strong>'. t('TeleMo services') .'</strong><br />'
+              . t('The settings forms below are for the various TeleMo services defined by enabled modules. Click a name to expand its options and adjust the settings accordingly.') .'</div><br />',
+  );
+
+  $form['telemo_service_table'] = array(
+    '#theme' => 'telemo_services_table',
+    '#summary callback' => 'summarize_form',
+  );
+
+  if (is_array($services) && count($services) > 0) {
+    foreach ($services as $service) {
+
+			$service_id = $service['id'];
+			$service_name = $service['name'];
+			
+			$service_enabled = 'tm_' . $service_id . '_enabled';
+			
+      $form['telemo_service_table'][$service_id]['#summary callback'] = 'summarize_form';
+
+      $form['telemo_service_table'][$service_id][$service_enabled] = array(
+        '#type' => 'checkbox',
+				'#title' => '<b>' . $service_name . ':</b> ' . $service['desc'],
+        '#summary callback' => 'summarize_checkbox',
+        '#summary arguments' => array(
+          t('@service service is enabled.', array('@service' => $service_name)),
+          t('@service service is disabled.', array('@service' => $service_name)),
+        ),
+        '#default_value' => variable_get($service_enabled, FALSE),
+      );
+
+      $service_settings = $service['callback']();
+      if (is_array($service_settings) && (count($service_settings) > 0)) {
+        $form['service_'. $service_id] = array(
+          '#type' => 'fieldset',
+          '#summary callback' => 'summarize_null',
+          '#title' => t('!service settings', array('!service' => $service_name)),
+          '#collapsible' => TRUE,
+          '#collapsed' => TRUE,
+        );
+        $form['service_'. $service_id] = array_merge($form['service_'. $service_id], $service_settings);
+      }
+    }
+  }
+	else {
+		// no services found; let the admin know this
+		$form['telemo_no_services'] = array(
+      '#type' => 'item',
+      '#summary callback' => 'summarize_element',
+      '#summary' => '<b>No TeleMo service modules appear to be loaded.</b>',
+			'#description' => t('You will need to enable one or more TeleMo service modules (such as TeleMo SMS) to make use of the TeleMo module.') . '<br /><br />',
+      '#value' => '<b>ATTENTION: No TeleMo service modules appear to be loaded.</b>',
+    );
+
+		// return early, no need to add standard buttons to the form
+		return $form;
+	}
+
+  return system_settings_form($form);
+}
+
+
+/**
+ * Theme the TeleMo services form
+ */
+function theme_telemo_services_table($form) {
+  $header = array(t('Enabled'), t('Service'));
+
+  foreach (element_children($form) as $service) {
+    $rows[] = array(
+      array('data' => drupal_render($form[$service]['telemo_service_'. $service]), 'align' => 'center'),
+      drupal_render($form[$service]['name']),
+    );
+  }
+
+  if (empty($rows)) {
+    $rows[] = array(
+      array('data' => t('No enabled TeleMo service modules founds.'), 'colspan' => 3),
+    );
+  }
+
+  return theme('table', $header, $rows);
+}
+
+
+/**
+ * Build a list of TeleMo services defined in the enabled modules.
+ */
+function _telemo_all_services($action = NULL) {
+  static $telemo_services = array();
+
+  if (count($telemo_services) > 0 && $action !== 'rebuild') {
+    return $telemo_services;
+  }
+
+  $telemo_services = module_invoke_all('telemo_service');
+
+  return $telemo_services;
+}
