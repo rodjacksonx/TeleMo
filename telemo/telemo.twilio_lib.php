@@ -31,7 +31,7 @@ require_once("twilio-php/Services/Twilio.php");
  *   with the usual 160-character SMS cap.
  *
  */
-function twSendSMS($to, $from_phone_num, $message) {
+function telemo_twSendSMS($to, $from_phone_num, $message) {
 
 	$client = new Services_Twilio(_get_telemo_twilio_accound_id, _get_telemo_twilio_auth_token);
 	
