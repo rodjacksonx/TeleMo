@@ -348,18 +348,328 @@ function theme_telemo_services_table($form) {
   return theme('table', $header, $rows);
 }
 
+/******************************************************/
 
 /**
- * Build a list of TeleMo services defined in the enabled modules.
+ * Implementation of hook_user().
+ *
+ * Enables the 'signup features' that are available in some TeleMo extending modules.
+ * This particular function allows the user to view and edit their participation in
+ * this features on their user account page.
+ *
+ */
+function telemo_user($type, $edit, &$user, $category = NULL) {
+
+	// if TeleMo is only debug-mode enabled, and this isn't an admin, skip out
+	if (variable_get('telemo_debug_mode', FALSE) && !user_access('access administration menu')) {
+		return;
+	}
+
+	// get user ID
+	$user_id = $user->uid;
+	if ($user_id <= 0) {
+		return;
+	}
+
+	// if this isn't someone looking at their own profile, or an admin, skip out
+  if (!($GLOBALS['user']->uid == $user_id) && !user_access('administer users')) {
+  	return;
+  }
+	
+	switch ($type) {
+	
+		case 'form':
+		
+			$data = db_fetch_array(db_query("SELECT mobile_num, signups FROM {telemo_users} WHERE id = %d", $user_id));
+			if ($data === FALSE) {
+				$mobile_num = '';
+				$user_signups = '';
+				db_query("INSERT INTO {telemo_users} (id, mobile_num, signups, creation, groupings, last_action_time, last_action_event) VALUES (%d, '', '', %d, '', 0, '')", $user_id, time());
+			}
+			else {
+				$record = $data;
+				$user_signups = $record['signups'];
+				$mobile_num = $record['mobile_num'];
+			}
+			
+			$enabled_services = _telemo_all_enabled_services();
+			
+  		if ($category == 'account') {
+  		
+  			$form['telemo_user_id_passthru'] = array( // CAREFUL!!!!! changed to '_user_id_', from '_user_'!
+  				'#type' => 'hidden',
+  				'#value' => $user_id
+  			);
+
+    		$form['telemo_mobile_num'] = array(
+					'#type' => 'textfield',
+					'#title' => t('Mobile number'),
+					'#default_value' => _cf_sms_display_mobile_num($mobile_num),
+					'#summary' => t('Mobile number for receiving TeleMo services: ') . $mobile_num,
+					'#description' => t("Number where text messages and other telephony services should be directed."),
+				);
+    
+				// loop through all enabled services
+				foreach ($enabled_services as $service) {
+				
+					// add a fieldset on the form for the opt-in features of this service
+					$service_id = $service['id'];
+					$fieldset_name = 'tm_' . $service_id . '_user_signups';
+		  		$form[$fieldset_name] = array(
+			      '#type' => 'fieldset',
+  	  		  '#title' => $service['name'],
+		  	    '#collapsible' => TRUE,
+		    	  '#collapsed' => FALSE,
+    			);
+
+					$service_prompt = 'tm_' . $service_id . '_prompt';
+					$form[$fieldset_name][$service_prompt] = $service['prompt'];
+					
+					$features = $service['features'];
+					
+					// loop through all features for this service
+					foreach ($features as $feature) {
+						// if an opt-in feature, and enabled, add a checkbox to the form to signup for it
+						if (($feature['optin']) && ($feature['enabled'])) {
+							$signup_name = 'tm_' . $service_id . '_feature_' . $signup['id'] . '_enabled';
+							$signup_tag = ':' . $service_id . '~' . $signup['id'] . ';';
+							$pos = strpos($user_signups, $signup_tag);
+							$form[$fieldset_name][$signup_name] = array(
+								'#type' => 'checkbox',
+								'#title' => '<strong>' . $signup['name'] . ':</strong> ' . $signup['text'],
+								'#default_value' => !($pos === FALSE),
+							);
+						}
+					}
+					
+					// check to make sure at least one opt-in feature is
+					// present; if not, remove the service from the form
+					if (count($form[$fieldset_name]) <= 5) {
+						unset ($form[$fieldset_name]);
+					}
+					
+				} // end loop through all enabled services
+				
+				
+		    return $form;
+  		}
+  
+  		break;
+  		
+  	case 'view':
+
+			// Do not show the options in the view page; since the TeleMo options
+			// are not part of the user profile, it may be best to not touch this.
+			break;
+			
+  }
+
+}
+
+
+/**
+ * Alter various forms to enable SMS settings, features, etc.
+ */
+function telemo_form_alter(&$form, &$form_state, $form_id) {
+
+	switch ($form_id) {
+	
+		// store the checked features on the user profile page into the DB
+		case 'user_profile_form':
+		
+			$form['#submit'][] = 'telemo_user_settings_validate';
+			break;
+			
+		// allow the user to signup during checkout if using Ubercart
+		case 'uc_cart_checkout_form':
+		
+			$form['#submit'][] = 'telemo_user_settings_validate';
+			break;
+			
+		// special case for the 'ship' feature, so it'll trigger on
+		// a form submit (we know we will be designing this service;
+		// we know we can just do this here.)
+		case 'uc_order_view_update_form':
+			
+			$form['#submit'][] = 'tm_sms_feature_ship_check';
+			break;
+  }
+
+}
+
+
+/**
+ * A validation routine for the user profile form, that takes their TeleMo
+ * service settings and stores their opted-in features in the DB.
+ */
+function telemo_user_settings_validate($form, &$form_state) {
+
+	// if TeleMo is only debug-mode enabled, and this isn't an admin, skip out
+	if (variable_get('telemo_debug_mode', FALSE) && !user_access('access administration menu')) {
+		return;
+	}
+
+	// get the user ID
+	// first check to see if we're entering from Ubercart's checkout process
+	if (isset($form_state['values']['panes'])) {
+		$form_state_values = $form_state['values']['panes']['tm_sms']; // we know about this service
+	}
+	else {
+		$form_state_values = $form_state['values'];
+	}
+	// NOW get the user ID
+	$user_id = $form_state_values['telemo_user_id_passthru'];
+	
+	// if user ID is negative, we had a new user with no real user ID;
+	// we still can't get anything except the order number right now, so
+	// create a record just using the negative of the order number for now
+	if ($user_id <= 0) {
+		$order_id = intval($_SESSION['cart_order']);
+		$user_id = -$order_id;
+		$signups = '';
+	}
+	else {
+		// get the user's opt-in features list;
+		// if no record found, create a new, blank one
+		$signups = db_result(db_query("SELECT signups FROM {telemo_users} WHERE id = %d", $user_id));
+		if ($signups === FALSE) {
+			$signups = '';
+		}
+	}
+	
+	// presume that an empty mobile number (no non-zero digits)
+	// indicates the user is unsubscribing from all features
+	$mobile_num = _telemo_extract_mobile_num($form_state_values['telemo_mobile_num']);
+	if (_mobile_num_is_empty($mobile_num)) {
+		$signups = '';
+		$mobile_num = '';
+	}
+	else {
+
+		// loop through and check all form elements
+		foreach ($form_state_values as $key => $form_element_value) {
+	
+			// determine if the form element is a TeleMo signup feature setting
+			$terms = explode('_', $key); // looking for array('tm', $service_id, 'feature', $feature_id, 'enabled')
+			if (($terms[0] == 'tm') && ($terms[2] == 'feature') && ($terms[4] == 'enabled')) {
+				$is_signup = TRUE;
+				$service_id = $terms[1];
+				$feature_id = $terms[3];
+				$feature_is_enabled = !!$form_element_value;
+			}
+			else {
+				$is_signup = FALSE;
+			}
+			
+			// if so, we may need to update the user's features list
+			if ($is_signup) {
+				// check if the user is signed up for the feature
+				$tagged_signup = ':' . $service_id . '~' . $feature_id . ';';
+				$pos = strpos($signups, $tagged_signup);
+		
+				// if the feature is checked, but the user isn't signed up, make a change
+				if ($feature_is_enabled && ($pos === FALSE)) {
+					$signups .= $tagged_feature_id;
+				}
+				// if the feature isn't checked, but the user is signed up, make a change
+				elseif ((!$feature_is_enabled) && ($pos !== FALSE)) {
+					$signups = str_replace($tagged_signup, '', $signups);
+				}
+			}
+		
+		} // end foreach loop through all form elements
+		
+	} // end check for a blank mobile number
+	
+	// see if they have a record yet
+	$data = db_result(db_query("SELECT mobile_num FROM {telemo_users} WHERE id = %d", $user_id));
+	// if they do not...
+	if ($data === FALSE) {
+		// then see if they include a mobile number and at least one feature. If so...
+		if (($mobile_num != '') && ($signups != '')) {
+			// create a new record for the user
+			db_query("INSERT INTO {telemo_users} (id, mobile_num, signups, creation, groupings, last_action_time, last_action_event) VALUES (%d, '%s', '%s', %d, '', 0, '')", $user_id, $mobile_num, $features, time());
+		}
+		// otherwise don't bother creating a record for the user
+	}
+	// but if they DO have a record already...
+	else {
+		// just update it
+		db_query("UPDATE {telemo_users} SET mobile_num = '%s', signups = '%s' WHERE id = %d", $mobile_num, $signups, $user_id);
+	}
+	
+	// while we're here, do the next scheduled actions
+	telemo_execute_next_scheduled_actions();
+	
+} // end function - telemo_user_settings_validate
+
+
+
+
+/******************************************************/
+
+/**
+ *
+ * Runs functions for all TeleMo features that require cron. To make use of,
+ * after creating your external feature function (say, tm_sms_feature_example),
+ * create a function for cron to call (in this case, tm_sms_feature_example_cron)
+ *
+ */
+function telemo_cron() {
+
+	// execute scheduled sends
+	telemo_execute_next_scheduled_actions();
+
+	// get the services
+	$services = _telemo_all_services();
+	
+	// loop through all the services
+	foreach ($services as $service) {
+	
+		$funcname_prefix = 'tm_' . $service['id'] . '_feature_';
+		
+		// loop through all the features
+		foreach ($service['features'] as $feature) {
+			// execute the cron function, if any, for the feature
+			$funcname = $funcname_prefix . $feature['id'] . '_cron';
+			if (function_exists($funcname)) {
+				call_user_func($funcname);
+			}
+		}
+
+	}
+
+}
+
+
+/**
+ * Return a list of TeleMo services defined in the enabled modules.
  */
 function _telemo_all_services($action = NULL) {
   static $telemo_services = array();
 
-  if (count($telemo_services) > 0 && $action !== 'rebuild') {
-    return $telemo_services;
-  }
-
-  $telemo_services = module_invoke_all('telemo_service');
-
+  if ((count($telemo_services) == 0) || ($action == 'rebuild')) {
+	  $telemo_services = module_invoke_all('telemo_service');
+	}
+	
   return $telemo_services;
 }
+
+
+/**
+ * Return only the enabled TeleMo services
+ */
+function _telemo_all_enabled_services($action = NULL) {
+
+	$services = _telemo_all_services($action);
+	
+	foreach ($services as $key => $service) {
+		if (!$service['enabled']) {
+			unset($services[$key]);
+		}
+	}
+	
+	return array_values($services);
+}
+
+
