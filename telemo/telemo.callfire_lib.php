@@ -169,7 +169,7 @@ string(735) '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
  *   CallFire's systems, available to us when recalling all our files.
  *
  */
-function cfAddVoiceFile($filename, $title = '') {
+function telemo_cfAddVoiceFile($filename, $title = '') {
 
   $client = _new_telemo_callfire_soap_client;
     
@@ -228,7 +228,7 @@ function cfAddVoiceFile($filename, $title = '') {
  * @param - $voice_id: the voice ID of the previously uploaded voice file
  *
  */
-function cfVoiceBroadcast($phone_nums, $caller_id_num, $title, $config, $voice_id) {
+function telemo_cfVoiceBroadcast($phone_nums, $caller_id_num, $title, $config, $voice_id) {
 
   // create a WSDL SOAP client to process the request;
   // UNFINISHED: this may be required to be the same
@@ -264,7 +264,7 @@ function cfVoiceBroadcast($phone_nums, $caller_id_num, $title, $config, $voice_i
  *   about the individual phone calls rather than about the broadcast itself
  *
  */
-function cfGetBroadcastInfo($id, $call_info = false) {
+function telemo_cfGetBroadcastInfo($id, $call_info = false) {
 
   $client = _new_telemo_callfire_soap_client();
 
@@ -290,7 +290,7 @@ function cfGetBroadcastInfo($id, $call_info = false) {
  *   responding to the postbacks
  *
  */
-function cfPostbackSubscribe($url) {
+function telemo_cfPostbackSubscribe($url) {
 
   $client = _new_telemo_callfire_soap_client('SOAP_1_2');
 
@@ -363,7 +363,7 @@ mail('whatsyourname@yourwebsite.com', $emailSubject, $emailMessage);
  *   for a postback, unsubscribes that particular postback.
  *
  */
-function cfPostbackUnsubscribe($id) {
+function telemo_cfPostbackUnsubscribe($id) {
 
   $client = _new_telemo_callfire_soap_client('SOAP_1_2');
   
@@ -406,7 +406,7 @@ foreach($subscriptions as $sub) {
  *   objects if one or more subscriptions, or a boolean FALSE if none.
  *
  */
-function cfGetSubscriptions() {
+function telemo_cfGetSubscriptions() {
 
   $client = _new_telemo_callfire_soap_client('SOAP_1_2');
 

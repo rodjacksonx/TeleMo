@@ -12,7 +12,7 @@
 /**
  * Initial entry point function for TeleMo's CallFire notification URL
  */
-function callfire_telemo_notification() {
+function telemo_callfire_notification() {
 
 	$post = file_get_contents("php://input");
 	if ($post) {
@@ -26,7 +26,7 @@ function callfire_telemo_notification() {
 /**
  * Initial entry point function for TeleMo's Twilio notification URL
  */
-function twilio_telemo_notification() {
+function telemo_twilio_notification() {
 
 	$post = file_get_contents("php://input");
 	if ($post) {
@@ -45,7 +45,8 @@ function twilio_telemo_notification() {
 function telemo_notification($xml, $service) {
 
 	// convert the input to a standardized internal format
-	$telemo_notify = array();
+	// (will do this when we know more about incoming posts)
+	//$telemo_notify = array();
 		
 	// let each service scrutinize the XML to see if it is for them
 	$results = module_invoke_all('telemo_notify', $service, $xml);

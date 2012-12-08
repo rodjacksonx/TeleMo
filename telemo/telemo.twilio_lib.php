@@ -33,25 +33,27 @@ require_once("twilio-php/Services/Twilio.php");
  */
 function telemo_twSendSMS($to, $from_phone_num, $message) {
 
-	$client = new Services_Twilio(_get_telemo_twilio_accound_id, _get_telemo_twilio_auth_token);
+	$client = new Services_Twilio(_get_telemo_twilio_accound_sid, _get_telemo_twilio_auth_token);
 	
 	$sms_error = FALSE;
 	$send_ids = array();
+	$error_data = ();
 	
 	if (!is_array($to)) {
 		$to = array($to);
 	}
 	
-	foreach ($to as $to_phone_num) {
+	foreach ($to as $key => $to_phone_num) {
 		$response = $client->account->sms_messages->create($from_phone_num, $to_phone_num, $message);
 		if (($response === FALSE) || ($response->status == 'failed')) {
 			$sms_error = TRUE;
+			$error_data = array('error_key' => $key, 'error_num' => $to_phone_num);
 			break;
 		}
 		$send_ids[] = $response->sid;
 	}
 	
-	$ret_array = array('ids' => $send_ids, 'error' => $sms_error);
+	$ret_array = array('ids' => $send_ids, 'error' => $sms_error, 'error_data' => $error_data);
 
 	return $ret_array;
 }
@@ -60,8 +62,8 @@ function telemo_twSendSMS($to, $from_phone_num, $message) {
 /**
  * Returns the app login to access CallFire's API
  */
-function _get_telemo_twilio_account_id() {
-  return variable_get('telemo_twilio_account_id', '');
+function _get_telemo_twilio_account_sid() {
+  return variable_get('telemo_twilio_account_sid', '');
 }
 
 /**

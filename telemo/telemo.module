@@ -39,6 +39,19 @@ function telemo_settings_form() {
 		'#description' =>
 			t("Base URL of the website. It is presented here primarily to allow admins to force the use of the 'https' version of their website if it doesn't automatically use it. TeleMo requires that the website use SSL to receive notifications from telephony service provider(s), so please add the 's' to 'http' if needed. For reference, the website's internal base URL is normally: ") . '<b>' . $base_url . '</b>',
 	);*/
+  $form['telemo_general_settings'] = array(
+		'#type' => 'fieldset',
+    '#title' => t('TeleMo general settings'),
+		'#collapsible' => FALSE,
+		'#collapsed' => FALSE,
+  );
+	$form['telemo_general_settings']['telemo_debug_mode'] = array(
+    '#type' => 'checkbox',
+		'#title' => t("Debug mode (only admins will be able to make use of TeleMo's features.)"),
+    '#summary callback' => 'summarize_checkbox',
+    '#summary arguments' => array(t('TeleMo is in debug mode.'), t('TeleMo is in normal mode.')),
+    '#default_value' => variable_get('telemo_debug_mode', FALSE),
+	);
   $form['telemo_callfire_settings'] = array(
 		'#type' => 'fieldset',
     '#title' => t('CallFire settings'),
@@ -87,12 +100,19 @@ function telemo_settings_form() {
     '#summary arguments' => array(t('Twilio access is enabled.'), t('Twilio access is disabled.')),
     '#default_value' => variable_get('telemo_twilio_enabled', FALSE),
 	);
-	$form['telemo_twilio_settings']['telemo_twilio_api_key'] = array(
+	$form['telemo_twilio_settings']['telemo_twilio_account_sid'] = array(
 		'#type' => 'textfield',
-		'#title' => t('Twilio API key'),
-		'#default_value' => variable_get('telemo_twilio_api_key', ''),
-    '#summary' => t('Twilio API key is currently set as: <br /> %login', array('%login' => variable_get('telemo_twilio_api_key', ''))),
-		'#description' => t('The API key provided by Twilio. This is required to use any Twilio services.'),
+		'#title' => t('Twilio account SID'),
+		'#default_value' => variable_get('telemo_twilio_account_sid', ''),
+    '#summary' => t('Twilio account SID is currently set as: <br /> %login', array('%login' => variable_get('telemo_twilio_account_sid', ''))),
+		'#description' => t('The account SID provided by Twilio. This is required to use any Twilio services.'),
+	);
+	$form['telemo_twilio_settings']['telemo_twilio_auth_token'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Twilio authentication token'),
+		'#default_value' => variable_get('telemo_twilio_auth_token', ''),
+    '#summary' => t('Twilio authentication token is currently set as: <br /> %login', array('%login' => variable_get('telemo_twilio_auth_token', ''))),
+		'#description' => t('The authentication token provided by Twilio. This is required to use any Twilio services.'),
 	);
 	$form['telemo_twilio_settings']['telemo_twilio_default_from_num'] = array(
 		'#type' => 'textfield',
@@ -104,7 +124,8 @@ function telemo_settings_form() {
 	);
 
 	return system_settings_form($form);
-}
+	
+} // end function - telemo_settings_form
 
 
 /**
@@ -136,14 +157,14 @@ function telemo_settings_form_validate($form, &$form_state) {
 		variable_set('telemo_callfire_login', $callfire_login);
 		variable_set('telemo_callfire_password', $callfire_password);
 		
-		$subscriptions = cfGetSubscriptions();
+		$subscriptions = telemo_cfGetSubscriptions();
 	
 		// remove previous subscriptions, in case any no-longer-accessed ones are present
 		if ($subscriptions) {
 			foreach ($subscriptions as $subscription) {
 				$id = $subscription->id;
 				if ($id) {
-					$response = cfPostbackUnsubscribe($id); //$client->deleteSubscription($delete_request);
+					$response = telemo_cfPostbackUnsubscribe($id); //$client->deleteSubscription($delete_request);
 				}
 			}
 		}
@@ -151,7 +172,7 @@ function telemo_settings_form_validate($form, &$form_state) {
 		$notify_url = $url . '/' . CALLFIRE_NOTIFY_URL;
 		
 		// create a new subscription
-		$response = cfPostbackSubscribe($notify_url);
+		$response = telemo_cfPostbackSubscribe($notify_url);
 	}
 
 } // end function - telemo_settings_form_validate
@@ -187,7 +208,7 @@ function telemo_menu() {
 	$items[CALLFIRE_NOTIFY_URL] = array(
 		'title' => 'CallFire Notifications',
 		'access callback' => TRUE,
-		'page callback' => 'callfire_notification',
+		'page callback' => 'telemo_callfire_notification',
 		'type' => MENU_CALLBACK,
 		'file' => 'telemo.notify.inc',
 	);
@@ -197,7 +218,7 @@ function telemo_menu() {
 	$items[TWILIO_NOTIFY_URL] = array(
 		'title' => 'Twilio Notifications',
 		'access callback' => TRUE,
-		'page callback' => 'twilio_notification',
+		'page callback' => 'telemo_twilio_notification',
 		'type' => MENU_CALLBACK,
 		'file' => 'telemo.notify.inc',
 	);
@@ -244,7 +265,8 @@ function telemo_menu() {
   );
 
 	return $items;
-}
+	
+} // end function - telemo_menu
 
 
 /**
@@ -262,7 +284,7 @@ function telemo_settings_overview() {
  */
 function telemo_services_form() {
 
-  $services = _telemo_all_services();
+  $services = _telemo_all_services('rebuild');
 
   $form['services_info'] = array(
     '#value' => '<div><strong>'. t('TeleMo services') .'</strong><br />'
@@ -323,7 +345,7 @@ function telemo_services_form() {
 	}
 
   return system_settings_form($form);
-}
+} // end function - telemo_services_form
 
 
 /**
@@ -404,7 +426,7 @@ function telemo_user($type, $edit, &$user, $category = NULL) {
     		$form['telemo_mobile_num'] = array(
 					'#type' => 'textfield',
 					'#title' => t('Mobile number'),
-					'#default_value' => _cf_sms_display_mobile_num($mobile_num),
+					'#default_value' => _telemo_display_mobile_num($mobile_num),
 					'#summary' => t('Mobile number for receiving TeleMo services: ') . $mobile_num,
 					'#description' => t("Number where text messages and other telephony services should be directed."),
 				);
@@ -522,19 +544,19 @@ function telemo_user_settings_validate($form, &$form_state) {
 	
 	// if user ID is negative, we had a new user with no real user ID;
 	// we still can't get anything except the order number right now, so
-	// create a record just using the negative of the order number for now
+	// set the user ID to the negative of the order number for now
 	if ($user_id <= 0) {
 		$order_id = intval($_SESSION['cart_order']);
 		$user_id = -$order_id;
-		$signups = '';
 	}
-	else {
-		// get the user's opt-in features list;
-		// if no record found, create a new, blank one
-		$signups = db_result(db_query("SELECT signups FROM {telemo_users} WHERE id = %d", $user_id));
-		if ($signups === FALSE) {
-			$signups = '';
-		}
+
+	// get the user's opt-in features list;
+	// if no record found, create a new, blank one
+	$record_found = TRUE;
+	$signups = db_result(db_query("SELECT signups FROM {telemo_users} WHERE id = %d", $user_id));
+	if ($signups === FALSE) {
+		$signups = '';
+		$record_found = FALSE;
 	}
 	
 	// presume that an empty mobile number (no non-zero digits)
@@ -550,7 +572,7 @@ function telemo_user_settings_validate($form, &$form_state) {
 		foreach ($form_state_values as $key => $form_element_value) {
 	
 			// determine if the form element is a TeleMo signup feature setting
-			$terms = explode('_', $key); // looking for array('tm', $service_id, 'feature', $feature_id, 'enabled')
+			$terms = explode('_', $key); // looking for: array('tm', $service_id, 'feature', $feature_id, 'enabled')
 			if (($terms[0] == 'tm') && ($terms[2] == 'feature') && ($terms[4] == 'enabled')) {
 				$is_signup = TRUE;
 				$service_id = $terms[1];
@@ -581,10 +603,8 @@ function telemo_user_settings_validate($form, &$form_state) {
 		
 	} // end check for a blank mobile number
 	
-	// see if they have a record yet
-	$data = db_result(db_query("SELECT mobile_num FROM {telemo_users} WHERE id = %d", $user_id));
-	// if they do not...
-	if ($data === FALSE) {
+	// if they do not have a record yet...
+	if (!$record_found) {
 		// then see if they include a mobile number and at least one feature. If so...
 		if (($mobile_num != '') && ($signups != '')) {
 			// create a new record for the user
@@ -621,7 +641,7 @@ function telemo_cron() {
 	telemo_execute_next_scheduled_actions();
 
 	// get the services
-	$services = _telemo_all_services();
+	$services = _telemo_all_services('rebuild');
 	
 	// loop through all the services
 	foreach ($services as $service) {
@@ -659,9 +679,9 @@ function _telemo_all_services($action = NULL) {
 /**
  * Return only the enabled TeleMo services
  */
-function _telemo_all_enabled_services($action = NULL) {
+function _telemo_all_enabled_services() {
 
-	$services = _telemo_all_services($action);
+	$services = _telemo_all_services('rebuild');
 	
 	foreach ($services as $key => $service) {
 		if (!$service['enabled']) {

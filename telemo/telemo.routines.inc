@@ -361,7 +361,7 @@ function _is_it_a_real_date($day, $month, $year, $time = FALSE) {
  * Given an array of arrays, and a key present in each of the subarrays,
  * returns the values of those subelements with the given key.
  */
-function _array_subvalues($arr, $key) {
+/*function _array_subvalues($arr, $key) {
 
 	$ret = array();
 	
@@ -370,4 +370,4 @@ function _array_subvalues($arr, $key) {
 	}
 	
 	return $ret;
-}
+}*/
