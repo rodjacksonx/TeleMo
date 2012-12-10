@@ -77,21 +77,21 @@ function telemo_settings_form() {
 		'#type' => 'textfield',
 		'#title' => t('CallFire login'),
 		'#default_value' => variable_get('telemo_callfire_login', ''),
-    '#summary' => t('CallFire login is currently set as: <br /> %login', array('%login' => variable_get('telemo_callfire_login', ''))),
+    '#summary' => t('CallFire login is currently set as: %login', array('%login' => variable_get('telemo_callfire_login', ''))),
 		'#description' => t('The app login provided by CallFire. This is required to use any CallFire services.'),
 	);
 	$form['telemo_callfire_settings']['telemo_callfire_password'] = array(
 		'#type' => 'textfield',
 		'#title' => t('CallFire password'),
 		'#default_value' => variable_get('telemo_callfire_password', ''),
-    '#summary' => t('CallFire password is currently set as: <br /> %password', array('%password' => variable_get('telemo_callfire_password', ''))),
+    '#summary' => t('CallFire password is currently set as: %password', array('%password' => variable_get('telemo_callfire_password', ''))),
 		'#description' => t('The app password provided by CallFire. This is required to use any CallFire services.'),
 	);
 	$form['telemo_callfire_settings']['telemo_callfire_default_from_num'] = array(
 		'#type' => 'textfield',
 		'#title' => t('"From" phone number'),
 		'#default_value' => variable_get('telemo_callfire_default_from_num', ''),
-    '#summary' => t('Default CallFire "from" phone number is currently set as: <br /> %from', array('%from' => variable_get('telemo_callfire_default_from_num', ''))),
+    '#summary' => t('Default CallFire "from" phone number is currently set as: %from', array('%from' => variable_get('telemo_callfire_default_from_num', ''))),
 		'#description' =>
 			t("The default phone number to use as the 'sent from' number on CallFire telephony communications. This should be a phone number you have on record with CallFire. Feel free to add dashes or whatever formatting you like; non-digits will be stripped before the number is used."),
 	);
@@ -112,21 +112,21 @@ function telemo_settings_form() {
 		'#type' => 'textfield',
 		'#title' => t('Twilio account SID'),
 		'#default_value' => variable_get('telemo_twilio_account_sid', ''),
-    '#summary' => t('Twilio account SID is currently set as: <br /> %login', array('%login' => variable_get('telemo_twilio_account_sid', ''))),
+    '#summary' => t('Twilio account SID is currently set as: %sid', array('%sid' => variable_get('telemo_twilio_account_sid', ''))),
 		'#description' => t('The account SID provided by Twilio. This is required to use any Twilio services.'),
 	);
 	$form['telemo_twilio_settings']['telemo_twilio_auth_token'] = array(
 		'#type' => 'textfield',
 		'#title' => t('Twilio authentication token'),
 		'#default_value' => variable_get('telemo_twilio_auth_token', ''),
-    '#summary' => t('Twilio authentication token is currently set as: <br /> %login', array('%login' => variable_get('telemo_twilio_auth_token', ''))),
+    '#summary' => t('Twilio authentication token is currently set as: %token', array('%token' => variable_get('telemo_twilio_auth_token', ''))),
 		'#description' => t('The authentication token provided by Twilio. This is required to use any Twilio services.'),
 	);
 	$form['telemo_twilio_settings']['telemo_twilio_default_from_num'] = array(
 		'#type' => 'textfield',
 		'#title' => t('"From" phone number'),
 		'#default_value' => variable_get('telemo_twilio_default_from_num', ''),
-    '#summary' => t('Default Twilio "from" phone number is currently set as: <br /> %from', array('%from' => variable_get('telemo_twilio_default_from_num', ''))),
+    '#summary' => t('Default Twilio "from" phone number is currently set as: %from', array('%from' => variable_get('telemo_twilio_default_from_num', ''))),
 		'#description' =>
 			t("The default phone number to use as the 'sent from' number on Twilio telephony communications. This should be a phone number you ALREADY have on record with Twilio. Feel free to add dashes or whatever formatting you like; non-digits will be stripped before the number is used."),
 	);
