@@ -53,6 +53,13 @@ function telemo_settings_form() {
     '#summary arguments' => array(t('TeleMo is in debug mode.'), t('TeleMo is in normal mode.')),
     '#default_value' => variable_get('telemo_debug_mode', FALSE),
 	);
+	$form['telemo_general_settings']['telemo_force_https'] = array(
+	  '#type' => 'checkbox',
+		'#title' => t("Force usage of HTTPS version of website (to use SSL.)"),
+    '#summary callback' => 'summarize_checkbox',
+    '#summary arguments' => array(t('TeleMo is forcing use of HTTPS.'), t('TeleMo is allowing site to use HTTP or HTTPS.')),
+    '#default_value' => variable_get('telemo_force_https', FALSE),
+	);
   $form['telemo_callfire_settings'] = array(
 		'#type' => 'fieldset',
     '#title' => t('CallFire settings'),
@@ -121,7 +128,7 @@ function telemo_settings_form() {
 		'#default_value' => variable_get('telemo_twilio_default_from_num', ''),
     '#summary' => t('Default Twilio "from" phone number is currently set as: <br /> %from', array('%from' => variable_get('telemo_twilio_default_from_num', ''))),
 		'#description' =>
-			t("The default phone number to use as the 'sent from' number on Twilio telephony communications. This should be a phone number you have on record with Twilio. Feel free to add dashes or whatever formatting you like; non-digits will be stripped before the number is used."),
+			t("The default phone number to use as the 'sent from' number on Twilio telephony communications. This should be a phone number you ALREADY have on record with Twilio. Feel free to add dashes or whatever formatting you like; non-digits will be stripped before the number is used."),
 	);
 
 	return system_settings_form($form);
@@ -136,30 +143,31 @@ function telemo_settings_form_validate($form, &$form_state) {
 
 	global $base_url;
 
-	// check that https is used, not just http
+	// if demanded, check that https is used, not just http
 	$url = $base_url;
-	$https_pos = strpos($url, 'https://');
-	if ($https_pos === FALSE) {
-		$http_pos = strpos($url, 'http://');
-		if ($http_pos === FALSE) {
-			$url = 'https://' . $url;
-		}
-		else {
-			$url = substr_replace($url, 'https:', $http_pos, 5); // replace 'http:' with 'https:'
+	$https_is_demanded = $form_state['values']['telemo_force_https'];
+	if ($https_is_demanded) {
+		$https_pos = strpos($url, 'https://');
+		if ($https_pos === FALSE) {
+			$http_pos = strpos($url, 'http://');
+			if ($http_pos === FALSE) {
+				$url = 'https://' . $url;
+			}
+			else {
+				$url = substr_replace($url, 'https:', $http_pos, 5); // replace 'http:' with 'https:'
+			}
 		}
 	}
 	
-	// for CallFire, if used, setup for postbacks
+	// for CALLFIRE, if used, setup for postbacks
 	$callfire_login = $form_state['values']['telemo_callfire_login'];
 	$callfire_password = $form_state['values']['telemo_callfire_password'];
 	$callfire_is_enabled = $form_state['values']['telemo_callfire_enabled'];
 	if ($callfire_is_enabled && ($callfire_login != '') && ($callfire_password != '')) {
-		
 		variable_set('telemo_callfire_login', $callfire_login);
 		variable_set('telemo_callfire_password', $callfire_password);
-		
+		// get all CallFire postback subscriptions
 		$subscriptions = telemo_cfGetSubscriptions();
-	
 		// remove previous subscriptions, in case any no-longer-accessed ones are present
 		if ($subscriptions) {
 			foreach ($subscriptions as $subscription) {
@@ -169,13 +177,43 @@ function telemo_settings_form_validate($form, &$form_state) {
 				}
 			}
 		}
-		
-		$notify_url = $url . '/' . CALLFIRE_NOTIFY_URL;
-		
 		// create a new subscription
+		$notify_url = $url . '/' . CALLFIRE_NOTIFY_URL;
 		$response = telemo_cfPostbackSubscribe($notify_url);
-	}
+	} // end check to see if using CallFire
 
+	// for TWILIO, if used, alert the system to our application
+	$twilio_acct_sid = $form_state['values']['telemo_twilio_account_sid'];
+	$twilio_auth_token = $form_state['values']['telemo_twilio_auth_token'];
+	$twiliio_is_enabled = $form_state['values']['telemo_twilio_enabled'];
+	if ($twilio_is_enabled && ($twilio_acct_sid != '') && ($twilio_auth_token != '')) {
+		variable_set('telemo_twilio_account_sid', $twilio_acct_sid);
+		variable_set('telemo_twilio_auth_token', $twilio_auth_token);
+		// check for previous applications registered with Twilio
+		$client = new Services_Twilio($twilio_acct_sid, $twilio_auth_token);
+		$application = FALSE;
+		$params = array('FriendlyName' => 'TeleMo App');
+		foreach ($client->account->applications->getIterator(0, 1, $params) as $app) {
+			$application = $app;
+			break;
+		}
+		// if we found one, delete it
+		if ($application) {
+			$client->account->applications->delete($application->sid);
+		}
+		// create this application (anew, if needed) and
+		// assign it's SID to all your account's numbers
+		$application = $client->account->applications->create('TeleMo App', array(
+			'FriendlyName' => 'TeleMo App',
+			'SmsUrl' => $url . '/' . TWILIO_NOTIFY_URL,
+			'SmsMethod' => 'POST'
+		));
+		$numbers = $client->account->incoming_phone_numbers;
+		foreach ($numbers as $number) {
+			$number->update(array('SmsApplicationSid' => $application->sid));
+		}
+	} // end check to see if we're using Twilio
+	
 } // end function - telemo_settings_form_validate
 
 
