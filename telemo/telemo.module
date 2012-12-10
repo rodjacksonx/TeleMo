@@ -12,6 +12,7 @@
  
 require_once("telemo.callfire_lib.php");
 require_once("telemo.twilio_lib.php");
+require_once("telemo.telemo_lib.php");
 require_once("telemo.routines.inc");
 require_once("telemo.notify.inc");
 

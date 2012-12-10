@@ -1,9 +1,7 @@
 <?php
 
-define('TWILIO_API_PREFIX', "https://api.twilio.com/2010-04-01/Accounts/");
-
-define('TWILIO_API_SMS_URI_PREFIX', "/SMS/Messages/");
-
+//define('TWILIO_API_PREFIX', "https://api.twilio.com/2010-04-01/Accounts/");
+//define('TWILIO_API_SMS_URI_PREFIX', "/SMS/Messages/");
 
 require_once("twilio-php/Services/Twilio.php");
 
