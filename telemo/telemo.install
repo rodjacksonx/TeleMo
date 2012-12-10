@@ -16,7 +16,7 @@
 function telemo_requirements($phase) {
   $t = get_t();
 
-  // CallFire's provided API code requires cURL.
+  // TeleMo requires cURL.
   $has_curl = function_exists('curl_init');
   if (variable_get('telemo_enabled', FALSE)) {
     $requirements['telemo_curl'] = array(
