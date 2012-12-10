@@ -121,7 +121,7 @@ function telemo_schema() {
     'description' => 'Records reference info for each TeleMo telephony action.',
     'fields' => array(
       'id' => array(
-        'description' => "Primary key: the action ID (for example, the CallFire broadcast ID.)",
+        'description' => "Primary key: the send ID (for example, the CallFire broadcast ID) of the action",
         'type' => 'int',
       ),
       'message' => array(
@@ -171,8 +171,8 @@ function telemo_schema() {
   $schema['telemo_action_numbers'] = array(
     'description' => 'Records all numbers of all sends we made.',
     'fields' => array(
-      'action_id' => array(
-        'description' => "The action ID (broadcast ID)",
+      'send_id' => array(
+        'description' => "The send ID (broadcast ID) of the action.",
         'type' => 'int',
       ),
       'user_id' => array(

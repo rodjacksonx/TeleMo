@@ -35,7 +35,7 @@ function telemo_twSendSMS($to, $from_phone_num, $message) {
 	
 	$sms_error = FALSE;
 	$send_ids = array();
-	$error_data = ();
+	$error_data = array();
 	
 	if (!is_array($to)) {
 		$to = array($to);

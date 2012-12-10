@@ -86,7 +86,7 @@ function telemo_execute_next_scheduled_actions() {
 			$new_time = $record['action_time'];
 			$recurrence = $record['recurrence'];
 			do {
-				$new_time = _update_time_based_on_recurrence($new_time, $recurrence);
+				$new_time = _tm_update_time_based_on_recurrence($new_time, $recurrence);
 			}
 			while (($new_time != 0) && ($new_time <= $t));
 			
@@ -120,7 +120,7 @@ function telemo_execute_next_scheduled_actions() {
  * Given a timestamp, and a code indicating the frequency of recurrence ('daily',
  * 'weekly', etc.) returns the timestamp for the event to be scheduled to occur next
  */
-function _update_time_based_on_recurrence($t, $recur) {
+function _tm_update_time_based_on_recurrence($t, $recur) {
 
 	switch ($recur) {
 	
@@ -148,7 +148,7 @@ function _update_time_based_on_recurrence($t, $recur) {
 			
 			// make sure it's a real date (that the month has enough days)
 			$time = $d; // only 'hours', 'minutes', & 'seconds' will be extracted
-			$updated_t = _is_it_a_real_date($d['mday'], $month, $year, $time);
+			$updated_t = _tm_is_it_a_real_date($d['mday'], $month, $year, $time);
 			if ($updated_t == FALSE) {
 				// if it's not a real date, we can safely advance two months w/ mktime and be guaranteed a valid date
 				$updated_t = mktime($d['hours'], $d['minutes'], $d['seconds'], $d['mon'] + 2, $d['mday'], $d['year']);
@@ -205,7 +205,7 @@ function _update_time_based_on_recurrence($t, $recur) {
 				$mday_of_xth_wday = $mday + (7 * ($xth - 1));
 				// check to make sure it's a real date;
 				// we'll get a timestamp if it is, or else FALSE
-				$updated_t = _is_it_a_real_date($mday_of_xth_wday, $month, $year, $time);
+				$updated_t = _tm_is_it_a_real_date($mday_of_xth_wday, $month, $year, $time);
 			}
 			while ($updated_t == FALSE);
 
@@ -256,7 +256,7 @@ function _update_time_based_on_recurrence($t, $recur) {
 	
 	return $updated_t;
 
-} // end function - _update_time_based_on_recurrence
+} // end function - _tm_update_time_based_on_recurrence
 
 
 /**
@@ -314,7 +314,7 @@ function _telemo_extract_mobile_num($num) {
 /*
  * Determines if the given number string is "empty" (no non-zero digits)
  */
-function _mobile_num_is_empty($num) {
+function _tm_mobile_num_is_empty($num) {
 
 	static $non_zero_digits = "123456789";
 	
@@ -338,7 +338,7 @@ function _mobile_num_is_empty($num) {
  * Just like PHP's time functions, day should be a number 1-31, month is 1-12, year is four
  * digits. May optionally include an array with elements 'hours', 'minutes' and 'seconds'.
  */
-function _is_it_a_real_date($day, $month, $year, $time = FALSE) {
+function _tm_is_it_a_real_date($day, $month, $year, $time = FALSE) {
 
 	if (($time !== FALSE) && is_array($time)) {
 		$t = mktime($time['hours'], $time['minutes'], $time['seconds'], $month, $day, $year);

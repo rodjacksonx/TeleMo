@@ -563,7 +563,7 @@ function telemo_user_settings_validate($form, &$form_state) {
 	// presume that an empty mobile number (no non-zero digits)
 	// indicates the user is unsubscribing from all features
 	$mobile_num = _telemo_extract_mobile_num($form_state_values['telemo_mobile_num']);
-	if (_mobile_num_is_empty($mobile_num)) {
+	if (_tm_mobile_num_is_empty($mobile_num)) {
 		$signups = '';
 		$mobile_num = '';
 	}
