@@ -142,7 +142,7 @@ function telemo_settings_form() {
 function telemo_settings_form_validate($form, &$form_state) {
 
 	global $base_url;
-
+	
 	// if demanded, check that https is used, not just http
 	$url = $base_url;
 	$https_is_demanded = $form_state['values']['telemo_force_https'];
@@ -702,6 +702,23 @@ function telemo_cron() {
 
 
 /**
+ * Returns the user IDs and mobile numbers of all users signed up for a specific feature
+ */
+function _telemo_get_signups_for_feature($service_id, $feature_id) {
+
+	$signups = array();
+	// all feature IDs in this field are prefixed by ':', and suffixed by ';'
+	$tagged_id = ':' . $service_id . '~' . $feature_id . ';';
+	$data = db_query("SELECT id, mobile_num FROM {telemo_users} WHERE signups LIKE '%%%s%%'", $tagged_id);
+	while ($record = db_fetch_array($data)) {
+		$signups[] = $record;
+	}
+	return $signups;
+
+}
+
+
+/**
  * Return a list of TeleMo services defined in the enabled modules.
  */
 function _telemo_all_services($action = NULL) {
@@ -732,3 +749,15 @@ function _telemo_all_enabled_services() {
 }
 
 
+/**
+ * Given an array of arrays, and a key present in each of the subarrays,
+ * returns the values of those subelements with the given key.
+ */
+function _telemo_array_subvalues($arr, $key) {
+
+	$ret = array();
+	foreach ($arr as $row) {
+		$ret[] = $row[$key];
+	}
+	return $ret;
+}

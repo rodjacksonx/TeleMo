@@ -70,49 +70,46 @@ function telemo_cfGet($url, $user, $password, $params = array(), $contentType = 
  */
 function telemo_cfSendSMS($phone_nums, $message, $from = false) {
 
-  // if given as an array, concat the numbers into a single string
-  if (is_array($phone_nums)) {
-    $phone_num_str = '';
-    foreach ($phone_nums as $phone_num) {
-      $phone_num_str .= $phone_num . ',';
-    }
-    $phone_num_str = substr($phone_num_str, 1);
-  }
-  else {
-    $phone_num_str = $phone_nums;
+  // if given as an array, we want to perform individual sends per number;
+  // so just setup a loop as default, and account for a single number too
+  if (!is_array($phone_nums)) {
+  	$phone_nums = array($phone_nums);
   }
   
-  // organize the details
-  $details = array();
-  $details['to'] = $phone_num_str;
-  $details['message'] = $message;
-  
-  // determine whether to include the $from parameter
+  // organize most of the details
+	$error = FALSE;
+  $ids = array();
+  $error_data = array();
+ 	$details = array();
+ 	$details['message'] = $message;
   if ($from !== false) {
     $details['from'] = $from;
   }
   
-  // use cfPost to do the actual send, getting a response
-  $resp = telemo_cfPost(CALLFIRE_SMS_SEND_URL, _get_telemo_callfire_login(), _get_telemo_callfire_password(), $details);
-
-  // convert the response into an xml object
-  $xml = simplexml_load_string($resp);
-  
-  if ($xml == FALSE) {
-  	$error = TRUE;
-	  $id = FALSE;
+  // do one send per number
+  foreach ($phone_nums as $key => $phone_num_str) {
+		//prepare for this number
+	  $details['to'] = $phone_num_str;
+	  // use cfPost to do the actual send, getting a response
+  	$resp = telemo_cfPost(CALLFIRE_SMS_SEND_URL, _get_telemo_callfire_login(), _get_telemo_callfire_password(), $details);
+  	// convert the response into an xml object
+  	$xml = simplexml_load_string($resp);
+  	// determine if successful or if there was an error
+  	if ($xml == FALSE) {
+  		$error = TRUE;
+			$error_data = array('error_key' => $key, 'error_num' => $phone_num_str);
+	  	break;
+  	}
+  	else {
+  		$id = (string)$xml->children(CALLFIRE_RESOURCE_NAMESPACE)->Id;
+  		$ids[] = $id;
+  	}
   }
-  else {
-  	$error = FALSE;
-  	$id = (string)$xml->children(CALLFIRE_RESOURCE_NAMESPACE)->Id;
-  }
   
-  $ret_array = array('ids' => $id, 'error' => $error);  
+  // organize and return the results
+  return array('ids' => $ids, 'error' => $error, 'error_data' => $error_data);  
   
-  // return the results
-  return $ret_array;
-  
-} // end function - cfSendSMS
+} // end function - telemo_cfSendSMS
 
 
 /**

@@ -98,7 +98,7 @@ function telemo_schema() {
 				'default' => '',
 			),
 			'signups' => array(
-			  'description' => "The SMS features the user is signed up for.",
+			  'description' => "The specific service features the user is signed up for.",
 				'type' => 'varchar',
 				'length' => 255, // enough for roughly 20 features
 				'default' => '',
@@ -122,7 +122,8 @@ function telemo_schema() {
     'fields' => array(
       'id' => array(
         'description' => "Primary key: the send ID (for example, the CallFire broadcast ID) of the action",
-        'type' => 'int',
+        'type' => 'varchar',
+        'length' => 39,
       ),
       'message' => array(
         'description' => "The message, if any, associated with this action.",
@@ -155,12 +156,12 @@ function telemo_schema() {
 				'type' => 'varchar',
 				'length' => 255,
 			),
-			'from_num' => array(
+			/*'from_num' => array(
 			  'description' => 'The number the activity was shown from, if one was specified.',
 				'type' => 'varchar',
 				'length' => 31,
 				'default' => '', // empty indicates none was specified
-			),
+			),*/
     ),
     'indexes' => array(
       'timestamp' => array('timestamp'),
@@ -173,7 +174,8 @@ function telemo_schema() {
     'fields' => array(
       'send_id' => array(
         'description' => "The send ID (broadcast ID) of the action.",
-        'type' => 'int',
+        'type' => 'varchar',
+        'length' => 39,
       ),
       'user_id' => array(
         'description' => "The user ID the send was for.",
@@ -234,12 +236,12 @@ function telemo_schema() {
 				'type' => 'varchar',
 				'length' => 255,
 			),
-			'from_num' => array(
+			/*'from_num' => array(
 			  'description' => 'The number the activity was shown from, if one was specified.',
 				'type' => 'varchar',
 				'length' => 31,
 				'default' => '', // empty indicates none was specified
-			),
+			),*/
       'recurrence' => array(
       	'description' => 'A code indicating when to resend a regularly occurring action.',
       	'type' => 'varchar',

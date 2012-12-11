@@ -7,8 +7,7 @@
  *   that TeleMo allows (currently Twilio and CallFire.) The returned
  *   response will be an associative array, one element per available
  *   service ('twilio', 'callfire'). Each element will either be an
- *   array of numbers, one send ID per text message sent, or a single
- *   number if only one send ID is returned, or an error string.
+ *   array of values (one send ID per text sent) or an error string.
  *
  * @param - $phone_nums: this is one or more phone numbers, either as
  *   a numeric string for one number or as an array of numeric strings
@@ -58,7 +57,18 @@ function tmSendSMS($to, $from, $message) {
   	}
   	$ret = telemo_cfSendSMS($to, $message, $from);
   	if ($ret['error']) {
-  		$result = 'A CallFire error occurred during an SMS send.';
+  		$num_sent = $ret['error_data']['error_key'];
+  		$total_nums = count($to);
+  		$result = 'A CallFire error occurred during an SMS send; ' . $num_set . ' out of ' . $total_nums . ' sends were successful.';
+  		$result .= ':IDs:';
+  		$result_ids = '';
+  		foreach ($ret['ids'] as $id) {
+  			$result_ids .= $id . ',';
+  		}
+  		if (strlen($result_ids) > 0) {
+  			$result_ids = substr($result_ids, 0, strlen($result_ids) - 1);
+  		}
+  		$result .= $result_ids;
   	}
   	else {
   		$result = $ret['ids'];
