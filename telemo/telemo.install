@@ -172,7 +172,7 @@ function telemo_schema() {
   $schema['telemo_action_numbers'] = array(
     'description' => 'Records all numbers of all sends we made.',
     'fields' => array(
-      'send_id' => array(
+      'action_id' => array(
         'description' => "The send ID (broadcast ID) of the action.",
         'type' => 'varchar',
         'length' => 39,

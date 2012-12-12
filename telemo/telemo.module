@@ -462,11 +462,18 @@ function telemo_user($type, $edit, &$user, $category = NULL) {
   				'#value' => $user_id
   			);
 
-    		$form['telemo_mobile_num'] = array(
+				$form['telemo_user_settings'] = array(
+					'#type' => 'fieldset',
+					'#title' => 'Telephony settings',
+					'#collapsible' => FALSE,
+					'#collapsed' => FALSE,
+				);
+				
+    		$form['telemo_user_settings']['telemo_mobile_num'] = array(
 					'#type' => 'textfield',
 					'#title' => t('Mobile number'),
 					'#default_value' => _telemo_display_mobile_num($mobile_num),
-					'#summary' => t('Mobile number for receiving TeleMo services: ') . $mobile_num,
+					'#summary' => t('Mobile number for receiving telephony services: ') . $mobile_num,
 					'#description' => t("Number where text messages and other telephony services should be directed."),
 				);
     
@@ -476,7 +483,7 @@ function telemo_user($type, $edit, &$user, $category = NULL) {
 					// add a fieldset on the form for the opt-in features of this service
 					$service_id = $service['id'];
 					$fieldset_name = 'tm_' . $service_id . '_user_signups';
-		  		$form[$fieldset_name] = array(
+		  		$form['telemo_user_settings'][$fieldset_name] = array(
 			      '#type' => 'fieldset',
   	  		  '#title' => $service['name'],
 		  	    '#collapsible' => TRUE,
@@ -484,7 +491,7 @@ function telemo_user($type, $edit, &$user, $category = NULL) {
     			);
 
 					$service_prompt = 'tm_' . $service_id . '_prompt';
-					$form[$fieldset_name][$service_prompt] = $service['prompt'];
+					$form['telemo_user_settings'][$fieldset_name][$service_prompt] = $service['prompt'];
 					
 					$features = $service['features'];
 					
@@ -492,12 +499,12 @@ function telemo_user($type, $edit, &$user, $category = NULL) {
 					foreach ($features as $feature) {
 						// if an opt-in feature, and enabled, add a checkbox to the form to signup for it
 						if (($feature['optin']) && ($feature['enabled'])) {
-							$signup_name = 'tm_' . $service_id . '_feature_' . $signup['id'] . '_enabled';
-							$signup_tag = ':' . $service_id . '~' . $signup['id'] . ';';
-							$pos = strpos($user_signups, $signup_tag);
-							$form[$fieldset_name][$signup_name] = array(
+							$signup_name = 'tm_' . $service_id . '_feature_' . $feature['id'] . '_signedup';
+							$feature_tag = ':' . $service_id . '~' . $feature['id'] . ';';
+							$pos = strpos($user_signups, $feature_tag);
+							$form['telemo_user_settings'][$fieldset_name][$signup_name] = array(
 								'#type' => 'checkbox',
-								'#title' => '<strong>' . $signup['name'] . ':</strong> ' . $signup['text'],
+								'#title' => '<strong>' . $feature['name'] . ':</strong> ' . $feature['text'],
 								'#default_value' => !($pos === FALSE),
 							);
 						}
@@ -505,8 +512,8 @@ function telemo_user($type, $edit, &$user, $category = NULL) {
 					
 					// check to make sure at least one opt-in feature is
 					// present; if not, remove the service from the form
-					if (count($form[$fieldset_name]) <= 5) {
-						unset ($form[$fieldset_name]);
+					if (count($form['telemo_user_settings'][$fieldset_name]) <= 5) {
+						unset ($form['telemo_user_settings'][$fieldset_name]);
 					}
 					
 				} // end loop through all enabled services
@@ -611,12 +618,12 @@ function telemo_user_settings_validate($form, &$form_state) {
 		foreach ($form_state_values as $key => $form_element_value) {
 	
 			// determine if the form element is a TeleMo signup feature setting
-			$terms = explode('_', $key); // looking for: array('tm', $service_id, 'feature', $feature_id, 'enabled')
-			if (($terms[0] == 'tm') && ($terms[2] == 'feature') && ($terms[4] == 'enabled')) {
+			$terms = explode('_', $key); // looking for: array('tm', $service_id, 'feature', $feature_id, 'signedup')
+			if (($terms[0] == 'tm') && ($terms[2] == 'feature') && ($terms[4] == 'signedup')) {
 				$is_signup = TRUE;
 				$service_id = $terms[1];
 				$feature_id = $terms[3];
-				$feature_is_enabled = !!$form_element_value;
+				$feature_is_signedup = !!$form_element_value;
 			}
 			else {
 				$is_signup = FALSE;
@@ -629,11 +636,11 @@ function telemo_user_settings_validate($form, &$form_state) {
 				$pos = strpos($signups, $tagged_signup);
 		
 				// if the feature is checked, but the user isn't signed up, make a change
-				if ($feature_is_enabled && ($pos === FALSE)) {
-					$signups .= $tagged_feature_id;
+				if ($feature_is_signedup && ($pos === FALSE)) {
+					$signups .= $tagged_signup;
 				}
 				// if the feature isn't checked, but the user is signed up, make a change
-				elseif ((!$feature_is_enabled) && ($pos !== FALSE)) {
+				elseif ((!$feature_is_signedup) && ($pos !== FALSE)) {
 					$signups = str_replace($tagged_signup, '', $signups);
 				}
 			}
@@ -642,12 +649,17 @@ function telemo_user_settings_validate($form, &$form_state) {
 		
 	} // end check for a blank mobile number
 	
+	// if they entered a 10-digit mobile number, add the obligatory '1' to the front
+	if (strlen($mobile_num) == 10) {
+		$mobile_num = '1' . $mobile_num;
+	}
+	
 	// if they do not have a record yet...
 	if (!$record_found) {
-		// then see if they include a mobile number and at least one feature. If so...
-		if (($mobile_num != '') && ($signups != '')) {
+		// then see if they include a mobile number or at least one feature. If so...
+		if (($mobile_num != '') || ($signups != '')) {
 			// create a new record for the user
-			db_query("INSERT INTO {telemo_users} (id, mobile_num, signups, creation, groupings, last_action_time, last_action_event) VALUES (%d, '%s', '%s', %d, '', 0, '')", $user_id, $mobile_num, $features, time());
+			db_query("INSERT INTO {telemo_users} (id, mobile_num, signups, creation, groupings, last_action_time, last_action_event) VALUES (%d, '%s', '%s', %d, '', 0, '')", $user_id, $mobile_num, $signups, time());
 		}
 		// otherwise don't bother creating a record for the user
 	}

@@ -271,16 +271,23 @@ function _telemo_display_mobile_num($num) {
 		$ret_num = '+011 ' . substr($num, 3);
 	}
 	else {
-		// if 11+ digits, don't format; just return the digit string
+		// if 12+ digits, don't format; just return the digit string
 		$L = strlen($num);
-		if ($L >= 11) {
+		if ($L >= 12) {
 			$ret_num = $num;
 		}
-		// if 10 digits, show area code separate, and standard U.S. 7-digit format
-		elseif ($L == 10) {
-			$ret_num = '(' . substr($num, 0, 3) . ') ' . substr($num, 3, 3) . '-' . substr($num, 6, 4);
+		// if 10-11 digits, show area code separate, and standard U.S. 7-digit format
+		elseif ($L >= 10) {
+			if ($L == 11) {
+				$num = substr($num, 1);
+				$ret_num = '1 ';
+			}
+			else {
+				$ret_num = '';
+			}
+			$ret_num .= '(' . substr($num, 0, 3) . ') ' . substr($num, 3, 3) . '-' . substr($num, 6, 4);
 		}
-		// if less than 10 digits, don't format, just return the digit string
+		// if less than 10 digits, don't format; just return the digit string
 		else {
 			$ret_num = $num;
 		}
