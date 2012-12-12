@@ -191,7 +191,7 @@ function telemo_schema() {
       ),
     ),
     'indexes' => array(
-      'send_id' => array('send_id'),
+      'action_id' => array('action_id'),
       'user_id' => array('user_id'),
     ),
   );
