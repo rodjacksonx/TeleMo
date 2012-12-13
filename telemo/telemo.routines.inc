@@ -76,11 +76,12 @@ function telemo_execute_next_scheduled_actions() {
 		
 		// if the scheduled action isn't too old, we try to execute it
 		if ($record['action_time'] > $t_minus_old_threshold) {
-		
+			$called = FALSE;
 			$funcname = 'tm_' . $record['service_id'] . '_feature_' . $record['feature_id'];
 			if (function_exists($funcname)) {
 				// call the function to do the action for the feature
 				call_user_func($funcname, $record['message'], $record['major_data'], $record['minor_data']);
+				$called = TRUE;
 			}
 			else {
 				// if function doesn't exist, it may be a removed external function;
@@ -93,7 +94,7 @@ function telemo_execute_next_scheduled_actions() {
 		
 		// if we aren't already sure we're going to delete the action, just
 		// advance it to a future date (unless it's a non-recurring action)
-		if (!$delete) {
+		if (!$delete && $called) {
 			// get the next scheduled time to perform the action based on
 			// recurrence, advancing multiple times until we get a future time
 			$new_time = $record['action_time'];
