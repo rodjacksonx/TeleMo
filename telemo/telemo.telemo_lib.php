@@ -35,15 +35,15 @@ function tmSendSMS($to, $from, $message) {
   	$to = array_values($to);
   }
   
-  // verify all 'to' numbers are at least 10 digits (must include the leading "1" or international code)
+  // verify all 'to' numbers are at least 11 digits (must include the leading "1" or international code)
   foreach ($to as $key => $to_num) {
-  	if (strlen($to_num) == 9) {
+  	if (strlen($to_num) == 10) {
   		$to[$key] = '1' . $to_num;
   	}
   }
   
-  // verify 'from' number is not simply 9 digits
-  if (strlen($from) == 9) {
+  // verify 'from' number is not simply 10 digits
+  if (strlen($from) == 10) {
   	$from = '1' . $from;
   }	
 
@@ -53,7 +53,10 @@ function tmSendSMS($to, $from, $message) {
   // if enabled, send via CallFire's systems
   if (variable_get('telemo_callfire_enabled', FALSE)) {
   	if ($from == '0') {
-  		$from = variable_get('telemo_callfire_default_from_num', '');
+  		$from = _telemo_extract_mobile_num(variable_get('telemo_callfire_default_from_num', ''));
+  	}
+  	if (strlen($from) == 10) {
+  		$from = '1' . $from;
   	}
   	$ret = telemo_cfSendSMS($to, $message, $from);
   	if ($ret['error']) {
@@ -79,7 +82,10 @@ function tmSendSMS($to, $from, $message) {
   // if enabled, send via Twilio's systems
   if (variable_get('telemo_twilio_enabled', FALSE)) {
   	if (($from == '0') || ($from == '')) {
-  		$from = variable_get('telemo_twilio_default_from_num', '');
+  		$from = _telemo_extract_mobile_num(variable_get('telemo_twilio_default_from_num', ''));
+  	}
+  	if (strlen($from) == 10) {
+  		$from = '1' . $from;
   	}
   	$ret = telemo_twSendSMS($to, $from, $message);
   	if ($ret['error']) {

@@ -28,13 +28,32 @@ define('TELEMO_DEAD_ACTION_THRESHOLD', 604800); // one week
  */
 function telemo_execute_next_scheduled_actions() {
 
+	global $telemo_future_actions_db_lock;
+	
 	$t = time();
 	$t_plus_one_min = $t + 60;
 	$t_minus_old_threshold = $t - TELEMO_OLD_ACTION_THRESHOLD; // originally three days
 	
-	// first, lock the table so other instances of this
-	// function don't cause concurrency problems
-	db_lock_table('telemo_future_actions');
+	// first, check to see if another instance of this function
+	// has "locked" the telemo_future_actions table; this function
+	// shouldn't take a half-minute to run, but we'll try to be "safe"
+	if ($telemo_future_actions_db_lock) {
+		// if so, note the time
+		$lock_time = time();
+		// loop until half of a minute is passed or the table is unlocked
+		do {
+			// sleep for a random number of microseconds (up to a full second)
+			usleep(mt_rand(1000, 1000000));
+		}
+		while ((($lock_time + 30) > time()) && ($telemo_future_actions_db_lock));
+		// clear the lock ourselves; it may have been left closed
+		$telemo_future_actions_db_lock = FALSE;
+	}
+	
+	// alert other instances of this function that we have
+	// "locked" the telemo_future_actions table for now
+	$telemo_future_actions_db_lock = TRUE;
+	$after_lock_time = time();
 	
 	// first thing: delete all scheduled actions older than the dead threshold
 	db_query("DELETE FROM {telemo_future_actions} WHERE action_time < %d", $t - TELEMO_DEAD_ACTION_THRESHOLD);
@@ -61,13 +80,7 @@ function telemo_execute_next_scheduled_actions() {
 			$funcname = 'tm_' . $record['service_id'] . '_feature_' . $record['feature_id'];
 			if (function_exists($funcname)) {
 				// call the function to do the action for the feature
-				if ($record['from_num'] == '') {
-					$from_num = FALSE;
-				}
-				else {
-					$from_num = $record['from_num'];
-				}
-				call_user_func($funcname, $from_num, $record['message'], $record['minor_data'], $record['major_data']);
+				call_user_func($funcname, $record['message'], $record['major_data'], $record['minor_data']);
 			}
 			else {
 				// if function doesn't exist, it may be a removed external function;
@@ -110,8 +123,8 @@ function telemo_execute_next_scheduled_actions() {
 	// unlock the table, then return how long
 	// it all took, on the chance we ever
 	// want/need to check execution times
-	db_unlock_tables();
-	return (time() - $t);
+	$telemo_future_actions_db_lock = FALSE;
+	return (time() - $after_lock_time);
 	
 } // end function - telemo_execute_next_scheduled_actions
 
@@ -122,6 +135,11 @@ function telemo_execute_next_scheduled_actions() {
  */
 function _tm_update_time_based_on_recurrence($t, $recur) {
 
+	// kick out immediately if a "null time"
+	if ($t == 0) {
+		return 0;
+	}
+	
 	switch ($recur) {
 	
 		case 'annually':
@@ -140,7 +158,7 @@ function _tm_update_time_based_on_recurrence($t, $recur) {
 			$month = $d['mon'] + 1;
 			if ($month > 12) {
 				$month = 1;
-				$year = $d['year'];
+				$year = $d['year'] + 1;
 			}
 			else {
 				$year = $d['year'];

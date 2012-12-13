@@ -22,6 +22,8 @@ define('TWILIO_WEBSITE', "https://twilio.com");
 define('CALLFIRE_NOTIFY_URL', "telemo/callfire/notify");
 define('TWILIO_NOTIFY_URL', "telemo/twilio/notify");
 
+global $telemo_future_actions_db_lock;
+
 
 /**
  * Settings form for the TeleMo module.

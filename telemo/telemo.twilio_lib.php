@@ -31,7 +31,7 @@ require_once("twilio-php/Services/Twilio.php");
  */
 function telemo_twSendSMS($to, $from_phone_num, $message) {
 
-	$client = new Services_Twilio(_get_telemo_twilio_accound_sid, _get_telemo_twilio_auth_token);
+	$client = new Services_Twilio(_get_telemo_twilio_account_sid(), _get_telemo_twilio_auth_token());
 	
 	$sms_error = FALSE;
 	$send_ids = array();
