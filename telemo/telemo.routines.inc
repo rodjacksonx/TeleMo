@@ -113,8 +113,8 @@ function telemo_execute_next_scheduled_actions() {
 		if ($delete) {
 			db_query("DELETE FROM {telemo_future_actions} WHERE id = %d", $record['id']);
 		}
-		// otherwise, update the DB with the next scheduled time
-		else {
+		// otherwise, update the DB with the next scheduled time (if we executed it)
+		elseif ($called) {
 			db_query("UPDATE {telemo_future_actions} SET action_time = %d WHERE id = %d", $new_time, $record['id']);
 		}
 		
