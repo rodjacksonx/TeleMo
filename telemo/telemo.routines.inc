@@ -11,10 +11,6 @@
  * @author Rod Jackson (RDJ)
  */
  
-
-//require_once("cf_sms.optin.inc");
-//require_once("cf_sms.response.inc");
-
 define('TELEMO_OLD_ACTION_THRESHOLD', 259200); // three days
 define('TELEMO_DEAD_ACTION_THRESHOLD', 604800); // one week
  
