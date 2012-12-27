@@ -35,12 +35,17 @@ function tmSendSMS($to, $from, $message) {
   	$to = array_values($to);
   }
   
-  // verify all 'to' numbers are at least 11 digits (must include the leading "1" or international code)
+  // verify all 'to' numbers are at least 11 digits (must include the leading "1");
+  // kill any over 11 digits (apparently Twilio doesn't like international numbers)
   foreach ($to as $key => $to_num) {
   	if (strlen($to_num) == 10) {
   		$to[$key] = '1' . $to_num;
   	}
+		elseif (strlen($to_num) > 11) {
+			unset($to[$key]);
+		}
   }
+  $to = array_values($to);
   
   // verify 'from' number is not simply 10 digits
   if (strlen($from) == 10) {
